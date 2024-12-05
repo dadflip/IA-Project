@@ -1,0 +1,11 @@
+    def get_board_state(self):
+        """
+        Returns the current state of the board as a grid (1 for filled, 0 for empty).
+        
+        Returns:
+            tuple: The 2D grid representing the current state of the board.
+        """
+        return tuple(
+            tuple(1 if self.canvas.itemcget(self.circles[r][c], "fill") != "white" else 0 for c in range(BOARD_COLS))
+            for r in range(BOARD_ROWS)
+        )
