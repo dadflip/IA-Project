@@ -192,8 +192,225 @@ class IQSolver(Endpoint):
         Displays an informational message to the user.
         """
         messagebox.showinfo("Solve", message)
+        
+        
+    def solve_with_dfs(self, verbose=True):
+        """
+        Résout le puzzle en utilisant DFS avec backtracking,
+        en plaçant une pièce à la fois et en revenant en arrière si nécessaire.
+        """
+        initial_grid = self.get_board_state()  # État initial de la grille
+        available_pieces = self.get_available_pieces()  # Liste des pièces disponibles
+        visited_states = set()
+
+        if verbose:
+            print("Début de la résolution DFS...\n")
+        # Trier les pièces par taille (les grandes pièces en premier)
+        available_pieces.sort(key=lambda piece: -self.get_piece_size(PIECES.get(piece)))
+        print(f"AVAILABLE :::: {available_pieces}")
+
+        # Appeler la fonction récursive de backtracking
+        if self.dfs_recursive(initial_grid, available_pieces, [], 0, visited_states, True):
+            self._display_message("Puzzle résolu avec DFS et retour en arrière !")
+            return True
+        else:
+            self._display_message("Aucune solution trouvée avec DFS.")
+            return False
+
+    def dfs_recursive(self, current_grid, remaining_pieces, path, depth, visited_states, verbose=True):
+        """
+        Fonction récursive pour résoudre le puzzle avec DFS et backtracking.
+        Affiche l'arborescence de l'exploration pour le débogage si 'verbose' est activé.
+        """
+        grid_hash = self.grid_to_hashable(current_grid)
+        if grid_hash in visited_states:
+            return False  # Si cet état a déjà été exploré, on évite de revenir dessus.
+        
+        visited_states.add(grid_hash)
+        
+        indent = "  " * depth  # Indentation pour chaque niveau d'arbre
+        if verbose:
+            print(f"{indent}Exploration niveau {depth}:")
+            print(f"{indent}Grille actuelle :")
+            self.print_grid(current_grid)  # Affichage de la grille pour mieux visualiser l'état
+            print(f"{indent}Pièces restantes : {remaining_pieces}")
+
+        # Si toutes les pièces ont été placées et que la grille est correcte
+        if not remaining_pieces:
+            if self.check.is_solution(current_grid):
+                if verbose:
+                    print(f"{indent}Solution trouvée!")
+                self.replay_solution(path)  # Rejouer la solution
+                return True
+            else:
+                if verbose:
+                    print(f"{indent}Solution incorrecte, retour en arrière.")
+                return False  # Solution incorrecte
+
+        # Prendre la prochaine pièce à placer
+        piece = remaining_pieces[0]
+        self.select_piece(piece)  # Sélectionner la pièce
+        if verbose:
+            print(f"{indent}Essayer de placer la pièce : {piece}")
+
+        # Générer tous les mouvements possibles de placement pour cette pièce
+        possible_moves = [move for move in self.get_possible_moves(piece, current_grid, [], [])
+                        if move[0] == 'place']  # Filtrer pour ne garder que les mouvements de type 'place'
+        
+        # Trier les mouvements par heuristique (ex. : remplir le plus d'espace possible)
+        # possible_moves.sort(key=lambda move: -self.evaluate_move(move, current_grid, piece))
 
 
+        # Essayer chaque mouvement possible de placement pour cette pièce
+        for move in possible_moves:
+            # Affichage pour chaque tentative de mouvement
+            if verbose:
+                print(f"{indent}Essayer le mouvement : {move}")
+            
+            # Appliquer le mouvement
+            new_grid = self.set_move(current_grid, piece, move)
+            
+            # Vérifier si la pièce est bien placée
+            if self.is_piece_placed(piece):
+                if verbose:
+                    print(f"{indent}Pièce placée : {piece}")
+                self.update_visual_grid()
+                self.canvas.update()
+                new_remaining_pieces = remaining_pieces[1:]  # Retirer la pièce de la liste
+                new_path = path + [(piece, move)]  # Ajouter ce mouvement au chemin
+
+                # Appel récursif pour explorer le prochain placement
+                if self.dfs_recursive(new_grid, new_remaining_pieces, new_path, depth + 1, visited_states, verbose):
+                    return True  # Solution trouvée, on termine la récursion
+
+                # Si la solution n'a pas été trouvée, on revient en arrière
+                if verbose:
+                    print(f"{indent}Solution incorrecte, revenir en arrière.")
+                self.remove_piece_by_name(piece)
+                self.update_visual_grid()
+                self.canvas.update()
+
+        if verbose:
+            print(f"{indent}Aucun mouvement valide, retour en arrière.")
+        return False
+    
+    def get_piece_size(self, piece):
+        """
+        Calcule la taille d'une pièce en comptant le nombre total de cellules occupées (1).
+        
+        :param piece: Une matrice (liste de listes) représentant la pièce.
+        :return: Un entier représentant le nombre de cellules occupées.
+        """
+        return sum(cell for row in piece for cell in row)
+ 
+    def evaluate_move(self, move, grid, piece):
+        """
+        Évalue un mouvement pour prioriser ceux qui ont le plus de chances de réussir.
+        Par exemple, maximiser l'espace couvert ou minimiser les zones vides.
+        """
+        # Implémenter une logique d'évaluation spécifique
+        return self.calculate_filled_area_after_move(grid, move, piece)
+
+    def calculate_filled_area_after_move(self, grid, move, piece):
+        """
+        Calcule l'aire totale remplie sur la grille après avoir appliqué un mouvement.
+        Cela inclut l'ajout de la pièce et évalue l'espace occupé pour prioriser ce mouvement.
+        
+        :param grid: La grille actuelle.
+        :param move: Le mouvement à évaluer (inclut la position et l'orientation).
+        :param piece: La pièce à placer.
+        :return: Une valeur numérique représentant l'aire remplie après le mouvement.
+        """
+        # Créer une copie de la grille pour simuler le mouvement
+        simulated_grid = [row[:] for row in grid]
+
+        # Appliquer le mouvement à la grille simulée
+        simulated_grid = self.set_move(simulated_grid, piece, move)
+
+        # Calculer l'aire remplie après le mouvement
+        filled_area = sum(row.count(1) for row in simulated_grid)  # Supposons que 1 représente une cellule occupée
+
+        # Éventuellement, pénaliser les trous ou les zones inaccessibles
+        penalty = self.calculate_penalty_for_holes(simulated_grid)
+
+        return filled_area - penalty
+    
+    def calculate_penalty_for_holes(self, grid):
+        """
+        Calcule une pénalité basée sur les trous ou espaces inutilisables dans la grille.
+        
+        :param grid: La grille actuelle après simulation.
+        :return: Une pénalité numérique (plus élevée si la grille contient de nombreux trous).
+        """
+        # Identifier les cellules vides
+        empty_cells = [(i, j) for i, row in enumerate(grid) for j, cell in enumerate(row) if cell == 0]
+
+        # Trouver des groupes de cellules vides connectées
+        visited = set()
+        penalty = 0
+
+        def dfs(cell):
+            stack = [cell]
+            connected = []
+            while stack:
+                x, y = stack.pop()
+                if (x, y) in visited:
+                    continue
+                visited.add((x, y))
+                connected.append((x, y))
+                # Vérifier les voisins adjacents
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    nx, ny = x + dx, y + dy
+                    if 0 <= nx < len(grid) and 0 <= ny < len(grid[0]) and grid[nx][ny] == 0:
+                        stack.append((nx, ny))
+            return connected
+
+        for cell in empty_cells:
+            if cell not in visited:
+                hole = dfs(cell)
+                penalty += len(hole)  # Ajouter une pénalité proportionnelle à la taille du trou
+
+        return penalty
+
+    def remove_piece_from_grid(self, grid, piece):
+        """
+        Retire la pièce de la grille. Cette méthode devra être adaptée selon la structure de votre grille.
+        """
+        for row in range(len(grid)):
+            for col in range(len(grid[row])):
+                # Si la cellule contient la pièce, la retirer (ou réinitialiser)
+                if grid[row][col] == piece:  # Adapté à votre logique de placement
+                    grid[row][col] = None  # Ou réinitialisez à un état vide approprié
+        print(f"Pièce {piece} retirée de la grille.")
+
+    def print_grid(self, grid):
+        """
+        Affiche la grille de manière lisible pour le débogage.
+        """
+        for row in grid:
+            print(" ".join(str(cell) for cell in row))
+        print("\n")
+
+    def grid_to_hashable(self, grid):
+        """Convertir la grille en une structure hachable."""
+        return tuple(
+            tuple(
+                frozenset(cell.items()) if isinstance(cell, dict) else cell
+                for cell in row
+            )
+            for row in grid
+        )
+
+    def replay_solution(self, path):
+        """
+        Rejouer la solution étape par étape.
+        """
+        print("Rejouer la solution...")
+        for piece, move in path:
+            self.select_piece(piece)
+            self.set_move(self.get_board_state(), piece, move)
+            self.update_visual_grid()
+            self.canvas.update()
 
 class IQPuzzlerProXXL(IQSolver):
     """
@@ -235,7 +452,9 @@ class IQPuzzlerProXXL(IQSolver):
         Creates a dropdown to select the solving algorithm.
         """
         self.algorithm_var = tk.StringVar(value="Q-learning")
-        tk.OptionMenu(self.button_frame, self.algorithm_var, "Q-learning").grid(row=0, column=4, padx=5)
+        tk.OptionMenu(
+            self.button_frame, self.algorithm_var, "Q-learning", "DFS"
+        ).grid(row=0, column=4, padx=5)
 
     def _create_piece_previews(self):
         """
@@ -261,6 +480,7 @@ class IQPuzzlerProXXL(IQSolver):
         selected_method = self.algorithm_var.get()
         solve_methods = {
             "Q-learning": self.solve_with_q_agent,
+            "DFS": self.solve_with_dfs,
         }
         solve_method = solve_methods.get(selected_method)
         

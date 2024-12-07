@@ -147,6 +147,7 @@ class WRITE(READ):
         action_type = action[0]  # 'place', 'move' ou 'remove'
         
         # Récupérer la pièce correspondante
+        self.select_piece(piece_name)
         piece = PIECES.get(piece_name)
         if not piece:
             raise ValueError(f"La pièce '{piece_name}' n'existe pas.")
