@@ -1,10 +1,14 @@
 import json
 import os
+from collections import defaultdict
+import threading
 
 class MemoryManager:
     def __init__(self, file_path="memory.json"):
         self.file_path = file_path
         self.memory = self.load_memory()
+        self.index = self.create_index()
+        self.lock = threading.Lock()  # Lock for thread-safe operations
 
     def load_memory(self):
         # Check if the file exists
@@ -22,11 +26,12 @@ class MemoryManager:
         return {}
 
     def save_memory(self):
-        try:
-            with open(self.file_path, "w") as file:
-                json.dump(self.memory, file, indent=4)
-        except Exception as e:
-            print(f"Error while saving memory: {e}")
+        with self.lock:
+            try:
+                with open(self.file_path, "w") as file:
+                    json.dump(self.memory, file, indent=4)
+            except Exception as e:
+                print(f"Error while saving memory: {e}")
 
     def add_entry(self, state, action, reward, next_state):
         entry = {
@@ -36,10 +41,39 @@ class MemoryManager:
             "next_state": next_state
         }
         state_key = str(state)  # Convert state to string as JSON keys must be strings
-        if state_key not in self.memory:
-            self.memory[state_key] = []
-        self.memory[state_key].append(entry)
+        with self.lock:
+            if state_key not in self.memory:
+                self.memory[state_key] = []
+            self.memory[state_key].append(entry)
+            self.update_index(state_key, entry)
         self.save_memory()
+
+    def create_index(self):
+        """
+        Create an index for quick lookup of state-action pairs.
+        """
+        index = defaultdict(list)
+        for state_key, entries in self.memory.items():
+            for entry in entries:
+                action = tuple(entry["action"])
+                index[(state_key, action)].append(entry)
+        return index
+
+    def update_index(self, state_key, entry):
+        """
+        Update the index with a new entry.
+        """
+        action = tuple(entry["action"])
+        self.index[(state_key, action)].append(entry)
+
+    def get_entries(self, state, action):
+        """
+        Get entries from the memory for a given state and action.
+        """
+        state_key = str(state)
+        action_tuple = tuple(action)
+        with self.lock:
+            return self.index.get((state_key, action_tuple), [])
 
     def repair_json(self):
         """

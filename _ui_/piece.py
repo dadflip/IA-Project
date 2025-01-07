@@ -589,7 +589,25 @@ class PieceMovement(PieceHandler):
             # Check if the piece is available before drawing it
             if self.pieces_available.get(name, True):  # Default to True if not explicitly set
                 self.draw_piece_preview(self.piece_frame, shape, piece_color, name)           
-                   
+                
+    def get_piece(self, piece_name, rotation=0, mirror=False):
+        """
+        Renvoie la représentation d'une pièce après application des transformations.
+        - rotation : Nombre de rotations (90° par pas).
+        - mirror : Si True, applique un effet miroir horizontal.
+        """
+        piece = PIECES[piece_name]  # Supposons que `self.pieces` contient les définitions des pièces de base.
+
+        # Appliquer les rotations
+        for _ in range(rotation):
+            piece = list(zip(*piece[::-1]))  # Rotation de 90° (transpose + inversion des lignes).
+
+        # Appliquer l'effet miroir
+        if mirror:
+            piece = [row[::-1] for row in piece]  # Inverser chaque ligne horizontalement.
+
+        return piece
+     
     def get_piece_rotation(self, piece_name):
         """
         Retrieves the current rotation of the selected piece.

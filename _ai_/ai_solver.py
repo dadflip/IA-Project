@@ -301,10 +301,10 @@ class IQSolver(Endpoint):
             print(f"{indent}Trying to place the piece: {piece}")
 
         # Generate all possible placement moves for this piece
-        possible_moves = [move for move in self.get_possible_moves(piece, current_grid, [], []) if move[0] == 'place' or move[0] == 'remove']  # Filter to keep only 'place' moves
+        possible_moves = [move for move in self.get_possible_moves(piece, current_grid, [], []) if move[0] == 'place']  # Filter to keep only 'place' moves
 
         # Sort moves by heuristic (e.g., filling the most space)
-        possible_moves.sort(key=lambda move: self.evaluate_move_with_heuristics(current_grid, move, depth))
+        possible_moves.sort(key=lambda move: self.evaluate_move_with_combined_heuristics(current_grid, move, depth, remaining_pieces))
 
         # Try each possible placement move for this piece
         for move in possible_moves:
@@ -637,6 +637,85 @@ class IQSolver(Endpoint):
                 self.update_visual_grid()
                 self.canvas.update()
 
+    def get_all_place_moves(self):
+        """
+        Génère tous les mouvements 'place' possibles pour chaque pièce sur la grille actuelle.
+        """
+        all_moves = {}
+        grid = self.get_board_state()
+        available_pieces = self.get_available_pieces()
+
+        for piece_name in available_pieces:
+            self.select_piece(piece_name)
+            possible_moves = self.get_possible_moves(piece_name, grid, [], [])
+            # Filtrer uniquement les mouvements 'place'
+            place_moves = [
+                move for move in possible_moves
+                if move[0] == 'place' and CHECK.is_valid_move(CHECK, grid, piece_name, move[1], move[2])
+            ]
+            all_moves[piece_name] = place_moves
+
+        return all_moves
+
+    def is_grid_filled(self, moves_combination, grid_size):
+        """
+        Vérifie si une combinaison de mouvements remplit exactement la grille.
+        """
+        filled_positions = set()
+        for move in moves_combination:
+            action, row, col, piece_name, rotation, mirror = move
+            piece = self.get_piece(piece_name, rotation, mirror)
+            for i in range(len(piece)):
+                for j in range(len(piece[i])):
+                    if piece[i][j] == 1:
+                        filled_positions.add((row + i, col + j))
+        return len(filled_positions) == grid_size * grid_size and len(filled_positions) == len(set(filled_positions))
+
+    def find_combined_intersection(self):
+        """
+        Trouve une combinaison de placements de pièces qui remplit la grille sans erreurs.
+        """
+        all_moves = self.get_all_place_moves()
+        grid_size = len(self.get_board_state())
+        piece_moves = list(all_moves.values())
+
+        def find_combination(index, current_combination):
+            if index == len(piece_moves):
+                # Vérifier si la combinaison remplit la grille
+                if self.is_grid_filled(current_combination, grid_size):
+                    return current_combination
+                return None
+
+            for move in piece_moves[index]:
+                result = find_combination(index + 1, current_combination + [move])
+                if result:
+                    return result
+            return None
+
+        solution = find_combination(0, [])
+        if solution:
+            print("Solution trouvée : ", solution)
+            self.apply_solution(solution)
+            return True
+        else:
+            print("Aucune solution trouvée.")
+            return False
+
+    def apply_solution(self, solution):
+        """
+        Applique le placement des pièces de la solution à la grille et met à jour l'UI.
+        """
+        for move in solution:
+            action, row, col, piece_name, rotation, mirror = move
+            self.select_piece(piece_name)
+            piece = self.get_piece(piece_name, rotation, mirror)
+            self.place_piece(piece, row, col)
+        
+        if self.update_ui:
+            self.update_visual_grid()
+            self.canvas.update()
+            
+            
 class IQPuzzlerProXXL(IQSolver):
     """
     Extends IQSolver with user interface features like piece preview, reset, and solve.
@@ -682,7 +761,7 @@ class IQPuzzlerProXXL(IQSolver):
         """
         self.algorithm_var = tk.StringVar(value="DFS")
         dropdown = tk.OptionMenu(
-            self.button_frame, self.algorithm_var, "Q-learning", "DFS", "Brute Force"
+            self.button_frame, self.algorithm_var, "Q-learning", "DFS", "Brute Force recursif", "Brute Force combinatoire"
         )
         dropdown.grid(row=1, column=0, columnspan=4, pady=5, sticky="ew")
 
@@ -711,7 +790,8 @@ class IQPuzzlerProXXL(IQSolver):
         solve_methods = {
             "Q-learning": self.solve_with_q_agent,
             "DFS": self.solve_with_dfs,
-            "Brute Force": self.solve_with_brute_force,
+            "Brute Force combinatoire": self.find_combined_intersection,
+            "Brute Force recursif": self.solve_with_brute_force,
         }
         solve_method = solve_methods.get(selected_method)
         

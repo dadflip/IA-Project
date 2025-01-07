@@ -1,8 +1,8 @@
 import random
-
 from _ai_.ACTIONS import CHECK
 from _ai_.MEMORY import MemoryManager
 from constants import PIECES
+import threading
 
 """
     1. Learning Rate: learning_rate=0.3
@@ -32,6 +32,9 @@ class QLearningAgent:
         self.discount_factor = discount_factor  # Discount factor
         self.epsilon = epsilon  # Exploration vs exploitation factor
         self.q_table = {}  # Q-table to store state-action values
+        self.memory_manager = MemoryManager()
+        self.memory_cache = {}  # In-memory cache for quick access
+        self.lock = threading.Lock()  # Lock for thread-safe operations
         
         self.combo_counter = 0  # Combo counter
         self.previous_completed_lines = set()  # Track already completed lines or subgrids
@@ -51,8 +54,9 @@ class QLearningAgent:
         if not isinstance(action, tuple):
             raise ValueError(f"Expected action to be a tuple, got {type(action)}")
 
-        if (state_tuple, action) not in self.q_table:
-            self.q_table[(state_tuple, action)] = 0.0  # Initialize to 0 if unknown
+        with self.lock:
+            if (state_tuple, action) not in self.q_table:
+                self.q_table[(state_tuple, action)] = 0.0  # Initialize to 0 if unknown
 
         return self.q_table[(state_tuple, action)]
 
@@ -85,14 +89,14 @@ class QLearningAgent:
             return
 
         new_q_value = self.get_q_value(state, action) + self.learning_rate * (reward + self.discount_factor * max_next_q - self.get_q_value(state, action))
-        self.q_table[(state_tuple, action)] = new_q_value
+        with self.lock:
+            self.q_table[(state_tuple, action)] = new_q_value
         
     def choose_action_with_memory(self, agent, state, possible_actions):
-        memory_manager = MemoryManager()
         state_key = str(state)
         
-        if state_key in memory_manager.memory:
-            known_actions = [entry["action"] for entry in memory_manager.memory[state_key]]
+        if state_key in self.memory_cache:
+            known_actions = [entry["action"] for entry in self.memory_cache[state_key]]
             for action in possible_actions:
                 if action not in known_actions:
                     return action
@@ -106,10 +110,9 @@ class QLearningAgent:
         """
         state = tuple(tuple(row) for row in state)
 
-        memory_manager = MemoryManager()
         state_key = str(state)
-        if state_key in memory_manager.memory:
-            known_actions = [entry["action"] for entry in memory_manager.memory[state_key]]
+        if state_key in self.memory_cache:
+            known_actions = [entry["action"] for entry in self.memory_cache[state_key]]
             for action in possible_actions:
                 if action not in known_actions:
                     return action
