@@ -394,60 +394,60 @@ class PieceMovement(PieceHandler):
         return True
 
     def can_move_piece(self, piece_name, row, col, board_state):
-        # Vérifier si la pièce peut être déplacée sur la case (row, col)
+        # Check if the piece can be moved to the cell (row, col)
         
         piece = PIECES.get(piece_name)
         
-        if not piece:  # Vérifier si la pièce existe
-            raise ValueError(f"La pièce '{piece_name}' n'existe pas.")
+        if not piece:  # Check if the piece exists
+            raise ValueError(f"The piece '{piece_name}' does not exist.")
         
-        # Calculer la taille de la pièce à partir de sa forme
-        piece_height = len(piece)  # Nombre de lignes de la forme
-        piece_width = len(piece[0])  # Nombre de colonnes dans la première ligne (on suppose que toutes les lignes ont la même longueur)
+        # Calculate the size of the piece from its shape
+        piece_height = len(piece)  # Number of rows in the shape
+        piece_width = len(piece[0])  # Number of columns in the first row (assuming all rows have the same length)
         
-        # Vérifier si la position est valide et dans les limites du tableau
+        # Check if the position is valid and within the board limits
         if row < 0 or col < 0 or row + piece_height > BOARD_ROWS or col + piece_width > BOARD_COLS:
-            return False  # La pièce dépasse les limites du tableau
+            return False  # The piece exceeds the board limits
 
-        # Vérifier si la zone est libre pour placer la pièce
+        # Check if the area is free to place the piece
         for r in range(row, row + piece_height):
             for c in range(col, col + piece_width):
-                if board_state[r][c] != 0:  # Si la case est déjà occupée par une autre pièce
+                if board_state[r][c] != 0:  # If the cell is already occupied by another piece
                     return False
 
-        return True  # La pièce peut être déplacée à la position (row, col)
+        return True  # The piece can be moved to the position (row, col)
 
     def can_remove_piece(self, piece_name, row, col, board_state):
-        # Vérifier si la pièce peut être retirée à la position (row, col)
+        # Check if the piece can be removed at the position (row, col)
         
-        # Vérifier que la case contient bien la pièce spécifiée
+        # Check that the cell contains the specified piece
         piece = PIECES.get(piece_name)
         if board_state[row][col] != piece_name:
-            print("la piece n'est pas aux coordonnées")
-            return False  # La pièce spécifiée n'est pas à cet endroit
+            print("The piece is not at the coordinates")
+            return False  # The specified piece is not at this location
         
-        # Vérifier si le retrait de la pièce ne laissera pas un "trou" dans une zone nécessaire
-        # Exemple : si le retrait de la pièce laisse un espace vide qui empêcherait de placer d'autres pièces
+        # Check if removing the piece will not leave a "hole" in a necessary area
+        # Example: if removing the piece leaves an empty space that would prevent placing other pieces
         for r in range(BOARD_ROWS):
             for c in range(BOARD_COLS):
                 if self.is_piece_placed(board_state[r][c]) and not self.can_move_piece(board_state[r][c], r, c, board_state):
-                    return False  # Retirer la pièce créerait une situation impossible
+                    return False  # Removing the piece would create an impossible situation
         
-        return True  # La pièce peut être retirée
+        return True  # The piece can be removed
 
     def can_remove_piece_by_name(self, piece_name):
         """
-        Vérifie si le plateau contient une pièce spécifiée par son nom.
+        Checks if the board contains a piece specified by its name.
         """
         for row in range(len(self.board_state)):
             for col in range(len(self.board_state[row])):
                 cell = self.board_state[row][col]
                 if cell and cell.get('piece') == piece_name:
-                    print(f"La pièce '{piece_name}' existe à ({row}, {col}).")
-                    return True  # La pièce a été trouvée sur le plateau
+                    print(f"The piece '{piece_name}' exists at ({row}, {col}).")
+                    return True  # The piece was found on the board
 
-        print(f"La pièce '{piece_name}' n'a pas été trouvée sur le plateau.")
-        return False  # La pièce n'existe pas sur le plateau
+        print(f"The piece '{piece_name}' was not found on the board.")
+        return False  # The piece does not exist on the board
 
     def place_piece(self, piece, row, col):
         """
@@ -496,7 +496,7 @@ class PieceMovement(PieceHandler):
         
     def update_visual_grid(self):
         """
-        Met à jour l'affichage visuel de la grille en fonction de l'état actuel de la grille.
+        Updates the visual display of the grid based on the current state of the grid.
         """
         for row in range(len(self.board_state)):
             for col in range(len(self.board_state[row])):
@@ -505,15 +505,15 @@ class PieceMovement(PieceHandler):
                     piece_color = PIECE_COLORS[list(PIECES.keys()).index(cell['piece'])]
                     self.canvas.itemconfig(self.circles[row][col], fill=piece_color)
                 else:
-                    self.canvas.itemconfig(self.circles[row][col], fill="white")  # Couleur de fond pour les cellules vides
+                    self.canvas.itemconfig(self.circles[row][col], fill="white")  # Background color for empty cells
 
     def is_piece_placed(self, piece_name):
         """
-        Vérifie si une pièce est déjà marquée comme placée dans la grille.
+        Checks if a piece is already marked as placed in the grid.
         Args:
-            piece_name (str): Le nom de la pièce à vérifier.
+            piece_name (str): The name of the piece to check.
         Returns:
-            bool: True si la pièce est placée, False sinon.
+            bool: True if the piece is placed, False otherwise.
         """
         return self.pieces_on_the_grid.get(piece_name, False)
 
@@ -562,32 +562,32 @@ class PieceMovement(PieceHandler):
         Args:
             piece_name (str): The name of the piece to remove.
         """
-        # Vérifier si la pièce est présente dans l'état du plateau
+        # Check if the piece is present in the board state
         if piece_name not in self.pieces_on_the_grid or not self.pieces_on_the_grid[piece_name]:
-            print(f"La pièce '{piece_name}' n'est pas présente sur le plateau.")
-            messagebox.showinfo("Info", f"La pièce '{piece_name}' n'est pas sur le plateau.")
+            print(f"The piece '{piece_name}' is not present on the board.")
+            messagebox.showinfo("Info", f"The piece '{piece_name}' is not on the board.")
             return
 
-        # Marquer la pièce comme disponible à nouveau
+        # Mark the piece as available again
         self.pieces_available[piece_name] = True
         self.pieces_on_the_grid[piece_name] = False
 
-        # Itérer à travers l'état du plateau pour trouver et effacer toutes les cellules occupées par la pièce
+        # Iterate through the board state to find and clear all cells occupied by the piece
         for r in range(len(self.board_state)):
             for c in range(len(self.board_state[r])):
                 if self.board_state[r][c] and self.board_state[r][c]['piece'] == piece_name:
-                    # Réinitialiser visuellement la cellule et dans l'état du plateau
-                    self.canvas.itemconfig(self.circles[r][c], fill='white')  # Réinitialiser la couleur
-                    self.board_state[r][c] = 0  # Effacer la cellule dans la matrice de l'état
+                    # Reset the cell visually and in the board state
+                    self.canvas.itemconfig(self.circles[r][c], fill='white')  # Reset color
+                    self.board_state[r][c] = 0  # Clear the cell in the state matrix
 
-        print(f"Supprimé toutes les instances de la pièce '{piece_name}'.")
+        print(f"Removed all instances of the piece '{piece_name}'.")
 
-        # Redessiner chaque pièce pour la sélection avec la couleur et la forme
+        # Redraw each piece for selection with color and shape
         for i, (name, shape) in enumerate(PIECES.items()):
             piece_color = PIECE_COLORS[i]
 
-            # Vérifier si la pièce est disponible avant de la dessiner
-            if self.pieces_available.get(name, True):  # Par défaut à True si non explicitement défini
+            # Check if the piece is available before drawing it
+            if self.pieces_available.get(name, True):  # Default to True if not explicitly set
                 self.draw_piece_preview(self.piece_frame, shape, piece_color, name)           
                    
     def get_piece_rotation(self, piece_name):

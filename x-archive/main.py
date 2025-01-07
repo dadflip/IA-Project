@@ -1,3 +1,4 @@
+from copy import deepcopy
 import tkinter as tk
 from tkinter import messagebox
 from matplotlib import colors
@@ -353,9 +354,30 @@ class IQPuzzlerProXXL(tk.Tk):
                         piece_canvas.create_oval(x0, y0, x1, y1, fill=color, outline="black", width=2)
 
 
-    def solve_game(self):
-        # Affiche un message pour dire que la solution sera implémentée.
-        messagebox.showinfo("Résoudre", "La solution n'est pas encore implémentée!")
+    def different_piece(self, piece):
+        # return les différent variation d'une piece rotation + miroire
+        Piece_variation = []
+        miror_piece = [row[::-1] for row in piece]
+        var_piece = [piece, miror_piece]
+        for k in range(4):
+            for i in range(2):
+                temp_piece = [list(row) for row in zip(*var_piece[i][::-1])]
+                var_piece[i] = temp_piece
+                if temp_piece not in Piece_variation:
+                    Piece_variation.append(temp_piece)
+        return Piece_variation
+
+    def where_place(self, piece, id_piece):
+        Where_piece = []
+        Var_piece = self.different_piece(piece)
+        for piece in Var_piece:
+            for row in range(BOARD_ROWS):
+                for col in range(BOARD_COLS):
+                    if self.can_place_piece(piece, row, col):
+                        Where_piece.append([piece, row, col, id_piece])
+        return Where_piece
+
+    def brute_force_init(self, Piece):
         #Récupère la grille
         Grille = []
         for r in range(BOARD_ROWS):
@@ -366,40 +388,106 @@ class IQPuzzlerProXXL(tk.Tk):
                     Grille[-1].append(1)
                 else:
                     Grille[-1].append(0)
+
+        #on récupère toutes le différente possibilité de placement pour chaque piece avec leur différent orientation
+        Where = []
+        for piece in range(len(Piece)):
+            Where += self.where_place(Piece[piece], piece)
+        return Grille, Where
+
+    def coabite(self, Piece1, Piece2):
+        # permet de savoir si deux piece peuvent se géner (ne prend pas en compte les piece déjà placer sur la grille)
+        if Piece1[3] == Piece2[3]:
+            return False
+        for row1 in range(len(Piece1[0])):
+            for col1 in range(len(Piece1[0][row1])):
+                for row2 in range(len(Piece2[0])):
+                    for col2 in range(len(Piece2[0][row2])):
+                        #si les deux se superpose en se point
+                        if Piece1[1] + row1 == Piece2[1] + row2 and Piece1[2] + col1 == Piece2[2] + col2:
+                            #si à ce point les deux pieces sont remplie
+                            if Piece1[0][row1][col1] == Piece2[0][row2][col2] == 1:
+                                return False
+        return True
+
+    def brute_force_recurs(self, Grille, Where):
+        #test si on a déjà résolut la grille
+        test = 0
+        for k in range(len(Grille)):
+            if 0 in Grille[k] :
+                test = 1
+        if test == 0:
+            return [0] #on renvoie pas une liste vide car compris comme False
+
+
+        #test si solution impossible
+        if len(Where) == 0:
+            return False
+
+        #met la piece dans la grille
+        new_Grille = deepcopy(Grille)
+        for row in range(len(Where[0][0])):
+            for col in range(len(Where[0][0][row])):
+                new_Grille[row+Where[0][1]][col+Where[0][2]] += Where[0][0][row][col]
+
+        #met à jour Where avec la piece placer
+        new_Where = deepcopy(Where)
+        for k in range(len(new_Where)-1, -1, -1):
+            if not self.coabite(new_Where[0], new_Where[k]):
+                del new_Where[k]
+
+        #si on trouve la soluce on la retourne sinon on recommence sans utiliser la piece
+        Test = self.brute_force_recurs(new_Grille, new_Where)
+        if Test :
+            Test.append(Where[0])
+            return Test
+        else:
+            del Where[0]
+            return self.brute_force_recurs(Grille, Where)
+
+    def find_piece(self, Piece):
+        id_piece = -1
+        for name, available in self.pieces_available.items():
+            piece = PIECES[name]
+            id_piece += 1
+            if available:
+                #les piece ont la même taille de matrice
+                if len(Piece) + len(Piece[0]) == len(piece) + len(piece[0]):
+                    if Piece in self.different_piece(piece):
+                        return name
+
+
+    def brute_force_solving(self, Piece):
+        Grille, Where = self.brute_force_init(Piece)
+
+        #on priorise les pieces qui créer le moins de gène
+        Soluce = self.brute_force_recurs(Grille, Where)
+        if Soluce:
+            del Soluce[0]#on suprime le zéro au début
+            for k in range(len(Soluce)):
+                self.select_piece(self.find_piece(Soluce[k][0]))
+                self.place_piece(Soluce[k][0], Soluce[k][1], Soluce[k][2])
+        return Soluce
+
+
+    def solve_game(self):
+        # Affiche un message pour dire que la solution sera implémentée.
+        #messagebox.showinfo("Résoudre", "La solution n'est pas encore implémentée!")
+
         #on récupère les pièce qui reste à placer
         Piece = []
         for piece, available in self.pieces_available.items():
             if available:
                 Piece.append(PIECES[piece])
-        return True
 
 
-
+        if self.brute_force_solving(Piece) :
+            return True
+        else:
+            return False
 
 if __name__ == "__main__":
     game = IQPuzzlerProXXL()
     game.mainloop()
-
-
-"""
-faire pivoter pièce (molette souris / bouton sur le coter)
-faire miroire pièce (click droit souris / bouton sur coter)
-
-metre rond en dehors
-
-
-
-accésoirement faire algo pour le résoudre
-
-
-
-
-
-
-
-"""
-
-
-
 
 
